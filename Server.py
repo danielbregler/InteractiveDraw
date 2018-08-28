@@ -64,7 +64,7 @@ def connect():
 
 @socketio.on('disconnect')
 def disconnect():
-    print('Disconnected')
+    print('Disconnected.')
 
 
 if __name__ == '__main__':

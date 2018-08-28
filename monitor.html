@@ -1,0 +1,187 @@
+<!--
+  Copyright (c) 2006-2013, JGraph Ltd
+  
+  Monitor example for mxGraph. This eample demonstrates using a
+  graph to display the current state of a workflow.
+-->
+<html>
+<head>
+	<title>mxGraph Workflow Monitor</title>
+
+	<!-- Sets the basepath for the library if not in same directory -->
+	<script type="text/javascript">
+		mxBasePath = '../static';
+	</script>
+
+	<!-- Loads and initializes the library -->
+	<script type="text/javascript" src="../static/js/mxClient.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.1.1/socket.io.slim.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+
+
+	<!-- Example code -->
+	<script type="text/javascript">
+		// Program starts here. Creates a sample graph in the
+		// DOM node with the specified ID. This function is invoked
+		// from the onLoad event handler of the document (see below).
+		function main(container)
+		{
+			// Checks if the browser is supported
+			if (!mxClient.isBrowserSupported())
+			{
+				// Displays an error message if the browser is not supported.
+				mxUtils.error('Browser is not supported!', 200, false);
+			}
+			else
+			{
+				mxConstants.SHADOWCOLOR = '#e0e0e0';
+				
+				// Creates the graph inside the given container
+				var graph = createGraph(container);
+				graph.setHtmlLabels(true)
+
+				mxUtils.get('http://127.0.0.1:5000/data/{{ id }}', function(req)
+				{
+   					var xml = req.request.responseText
+   					//console.log(xml)
+
+					var doc = mxUtils.parseXml(xml);
+					var codec = new mxCodec(doc);
+					codec.decode(doc.documentElement, graph.getModel());
+
+				});
+
+
+			}
+
+				// jquery to manipulate DOM
+				$(document).ready(function() {
+            		console.log('Here we go')
+            		var socket = io.connect('http://127.0.0.1:5000/test');
+            		socket.on('newnumber', function(msg) {
+					console.log("Received Reading: " + msg.number);       
+					var xml = '<process><update id="2" fillColor="#232323" value="ping:'+msg.number+' "/></process>';
+
+					update(graph, xml); 
+            	});
+
+        }); 
+
+
+		};
+
+		/**
+		 * Updates the display of the given graph using the XML data
+		 */
+		function update(graph, xml)
+		{
+
+
+			if (xml != null && xml.length > 0)
+			{
+				var doc = mxUtils.parseXml(xml);
+				
+				if (doc != null && doc.documentElement != null)
+				{
+					var model = graph.getModel();
+					var nodes = doc.documentElement.getElementsByTagName('update');
+					
+					if (nodes != null && nodes.length > 0)
+					{
+						model.beginUpdate();
+
+						try
+						{
+							for (var i = 0; i < nodes.length; i++)
+							{
+								// Processes the activity nodes inside the process node
+								var id = nodes[i].getAttribute('id');
+								var state = nodes[i].getAttribute('state');
+								var value = nodes[i].getAttribute('value');
+								
+								// Gets the cell for the given activity name from the model
+								var cell = model.getCell(id);
+								
+								
+								// Updates the cell color and adds some tooltip information
+								if (cell != null)
+								{
+									// Resets the fillcolor and the overlay
+									graph.setCellStyles(mxConstants.STYLE_FILLCOLOR, 'white', [cell]);
+									graph.removeCellOverlays(cell);
+			
+									graph.model.setValue(cell, value);		
+									
+									// Adds tooltip information using an overlay icon
+									if (state != 'Init')
+									{
+										// Sets the overlay for the cell in the graph
+										graph.addCellOverlay(cell, createOverlay(graph.warningImage, 'State: '+state));
+									}
+								}
+							} // for
+						}
+						finally
+						{
+							model.endUpdate();
+						}
+					}
+				}
+			}
+		};
+		
+		/**
+		 * Creates an overlay object using the given tooltip and text for the alert window
+		 * which is being displayed on click.
+		 */
+		function createOverlay(image, tooltip)
+		{
+			var overlay = new mxCellOverlay(image, tooltip);
+
+			// Installs a handler for clicks on the overlay
+			overlay.addListener(mxEvent.CLICK, function(sender, evt)
+			{
+				mxUtils.alert(tooltip + '\nLast update: ' + new Date());
+			});
+			
+			return overlay;
+		};
+		
+		/**
+		 * Creates and returns an empty graph inside the given container.
+		 */
+		function createGraph(container)
+		{
+			var graph = new mxGraph(container);
+			graph.setTooltips(true);
+			graph.setEnabled(false);
+			
+			// Disables folding
+			graph.isCellFoldable = function(cell, collapse)
+			{
+				return false;
+			};
+
+			
+			
+			return graph;
+		};
+
+	</script>
+</head>
+
+    <!-- Connect to web socket-->
+    <script type="text/javascript">
+      
+    </script>
+
+<!-- Page passes the container and control to the main function -->
+<body onload="main(document.getElementById('graphContainer'));">
+
+	<!-- Acts as a container for the graph -->
+	<div id="graphContainer" style="overflow:hidden;position:relative;width:1000px;height:750px;cursor:default;">
+	</div>
+	<br>
+</body>
+</html>
+
